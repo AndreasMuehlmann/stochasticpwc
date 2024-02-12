@@ -1,10 +1,8 @@
 use std::env;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, Write, BufReader, BufRead};
 use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Follower {
     count: u32,
     letter: char,
@@ -19,7 +17,7 @@ impl Follower {
     }
 }
 
-type PatternTree = BTreeMap<String, BTreeSet<Follower>>;
+type PatternTree = BTreeMap<String, Vec<Follower>>;
 
 fn split_kv_pair(text: &str, mut pattern_length: usize) -> (String, char) {
     let mut pattern = "".to_string();
@@ -51,18 +49,18 @@ fn count_from_encoding(line: &str, pattern_length: usize) -> u32 {
     }
 }
 
-fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: String, mut new_follower: Follower) {
+fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: String, new_follower: Follower) {
     if let Some(followers) = pattern_tree.get_mut(&pattern) {
-        for follower in followers.iter() {
+        for follower in followers.iter_mut() {
             if follower.letter == new_follower.letter {
-                new_follower.count += follower.count;
-                followers.insert(new_follower);
-                break;
+                follower.count += 1; 
+                return;
             }
         }
+        followers.push(new_follower);
     } else {
-        let mut followers = BTreeSet::new();
-        followers.insert(new_follower);
+        let mut followers = Vec::new();
+        followers.push(new_follower);
         pattern_tree.insert(pattern, followers);
     }
 }
@@ -90,14 +88,19 @@ fn pattern_trees_from_pw_lists(paths: &[String]) -> Result<Vec<PatternTree>, io:
                 continue
             }
 
+            let mut tail: String = line.to_string();
             for _ in line.chars() {
-                let mut tail: String = line.to_string();
                 for pattern_length in 0..tail.len().min(COUNT_PATTERN_TREES) {
                     let (pattern, following_letter) = split_kv_pair(&tail, pattern_length);
                     insert_kv_pair(&mut pattern_trees[pattern_length], pattern, Follower::new(1, following_letter));
-                    tail = tail[1..].chars().collect();
                 }
+                tail = tail[1..].chars().collect();
             }
+        }
+    }
+    for pattern_tree in pattern_trees.iter_mut() {
+        for followers in pattern_tree.values_mut() {
+            followers.sort_by(|a, b| b.count.cmp(&a.count));
         }
     }
     Ok(pattern_trees)
@@ -138,16 +141,19 @@ fn parse_pattern_trees(path: &str) -> Result<Vec<PatternTree>, io::Error> {
     Ok(pattern_trees)
 }
 
-fn write_pattern_trees(pattern_trees: Vec<PatternTree>, path: &str) {
+fn write_pattern_trees(pattern_trees: Vec<PatternTree>, path: &str) -> Result<(), io::Error>{
+    let mut output = File::create(path)?;
     for pattern_tree in pattern_trees {
         for (pattern, followers) in pattern_tree {
             for follower in followers {
-                print!("{}", pattern);
-                println!("{}{}", follower.letter, follower.count);
+
+                write!(output, "{}", pattern)?;
+                writeln!(output, "{}{}", follower.letter, follower.count)?;
             }
         }
-        println!("---");
+        writeln!(output, "---")?;
     }
+    Ok(())
 }
 
 fn main() {
@@ -176,5 +182,5 @@ fn main() {
             }
         }
     }
-    write_pattern_trees(pattern_trees, "pattern_tree_reproduction_encoding.txt");
+    write_pattern_trees(pattern_trees, "pattern_tree_encoding.txt").unwrap();
 }
