@@ -66,7 +66,7 @@ fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: String, new_follower:
 }
 
 fn pattern_trees_from_pw_lists(paths: &[String]) -> Result<Vec<PatternTree>, io::Error> {
-    const COUNT_PATTERN_TREES: usize = 3;
+    const COUNT_PATTERN_TREES: usize = 5;
     let mut pattern_trees: Vec<PatternTree> = vec![];
     for _ in 0..COUNT_PATTERN_TREES {
         pattern_trees.push(PatternTree::new());
@@ -100,6 +100,7 @@ fn pattern_trees_from_pw_lists(paths: &[String]) -> Result<Vec<PatternTree>, io:
     }
     for pattern_tree in pattern_trees.iter_mut() {
         for followers in pattern_tree.values_mut() {
+            followers.retain(|follower| follower.count != 1);
             followers.sort_by(|a, b| b.count.cmp(&a.count));
         }
     }
