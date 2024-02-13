@@ -82,7 +82,7 @@ impl PatternTreesFactory {
         }
         for pattern_tree in pattern_trees.iter_mut() {
             for followers in pattern_tree.values_mut() {
-                followers.retain(|follower| follower.count != 1);
+                // followers.retain(|follower| follower.count != 1);
                 followers.sort_by(|a, b| b.count.cmp(&a.count));
             }
         }
