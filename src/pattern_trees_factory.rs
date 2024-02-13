@@ -168,5 +168,4 @@ impl PatternTreesFactory {
             pattern_tree.insert(pattern, followers);
         }
     }
-
 }
