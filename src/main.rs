@@ -32,5 +32,6 @@ fn main() {
     let pattern_trees_factory = PatternTreesFactory::new(5);
     let pattern_trees: PatternTrees = pattern_trees_factory.from_paths_error_handling(args);
     pattern_trees.write_encoding_error_handling(None);
-    //crack_hash_bfs(pattern_trees, "passw".to_string())
+    pattern_trees.print_probability_distribution();
+    crack_hash_bfs(pattern_trees, "passw".to_string())
 }
