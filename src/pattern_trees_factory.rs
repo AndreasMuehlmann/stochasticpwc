@@ -65,18 +65,21 @@ impl PatternTreesFactory {
                     }
                 };
 
-                let line = line.trim();
                 if line.is_empty() {
                     continue
                 }
 
-                let mut tail: String = line.to_string();
-                for _ in line.chars() {
-                    for pattern_length in 0..tail.len().min(self.count_pattern_trees) {
-                        let (pattern, following_letter) = Self::split_kv_pair(&tail, pattern_length);
-                        Self::insert_kv_pair(&mut pattern_trees[pattern_length], pattern, Follower::new(1, following_letter));
+                let is_ascii = line.is_ascii();
+                let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees);
+                sub_strings.reverse();
+                for mut sub_string in sub_strings {
+                    while !sub_string.is_empty() {
+                        let split_sub_string = Self::split_end(sub_string);
+                        sub_string = split_sub_string.0;
+                        let following_letter = split_sub_string.1;
+                        let pattern_length = if is_ascii { sub_string.len() } else { sub_string.chars().count() };
+                        Self::insert_kv_pair(&mut pattern_trees[pattern_length], sub_string.clone(), Follower::new(1, following_letter));
                     }
-                    tail = tail[1..].chars().collect();
                 }
             }
         }
@@ -87,6 +90,19 @@ impl PatternTreesFactory {
             }
         }
         Ok(PatternTrees::new(pattern_trees))
+    }
+
+    fn sub_strings_max_len(string: String, max_len: usize) -> Vec<String> {
+        let mut sub_strings: Vec<String> = Vec::with_capacity(15);
+        let string_char_count = string.chars().count();
+        for i in 0..string_char_count {
+            sub_strings.push(string
+                             .chars()
+                             .skip(string_char_count - i - 1).take(max_len.min(i + 1))
+                             .collect()
+                             );
+        }
+        sub_strings
     }
 
     pub fn from_encoding(path: &str) -> Result<PatternTrees, io::Error> {
@@ -116,41 +132,11 @@ impl PatternTreesFactory {
                 continue;
             }
 
-            let (pattern, following_letter) = Self::split_kv_pair(line, pattern_length);
-            let count = Self::count_from_encoding(line, pattern_length);
+            let (line, count) = Self::parse_count_from_encoding(line.to_string(), pattern_length);
+            let (pattern, following_letter) = Self::split_end(line);
             Self::insert_kv_pair(&mut pattern_tree, pattern, Follower::new(count, following_letter))
         }
         Ok(PatternTrees::new(pattern_trees))
-    }
-
-    fn split_kv_pair(text: &str, mut pattern_length: usize) -> (String, char) {
-        let mut pattern = "".to_string();
-        let mut following_letter: char = '\0';
-        for letter in text.chars() {
-            if pattern_length <= 0 {
-                following_letter = letter;
-                break; 
-            }
-            pattern.push(letter);
-            pattern_length -= 1;
-        }
-        (pattern, following_letter)
-    }
-
-    fn count_from_encoding(line: &str, pattern_length: usize) -> u32 {
-        let mut count = "".to_string();
-        for (index, letter) in line.chars().enumerate() {
-            if index > pattern_length {
-                count.push(letter);
-            }
-        }
-        match count.parse::<u32>() {
-            Ok(count) => count,
-            Err(err) => {
-                eprintln!("Error parsing count: {}", err);
-                0
-            },
-        }
     }
 
     fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: String, new_follower: Follower) {
@@ -163,9 +149,61 @@ impl PatternTreesFactory {
             }
             followers.push(new_follower);
         } else {
-            let mut followers = Vec::new();
+            let mut followers = Vec::with_capacity(10);
             followers.push(new_follower);
             pattern_tree.insert(pattern, followers);
         }
     }
+
+    fn split_end(mut string: String) -> (String, char) {
+        let following_letter = string.pop().unwrap();
+        (string, following_letter)
+    }
+
+    fn split_off_chars(mut string: String, cut_off: usize) -> (String, String) {
+        let byte_offset = if string.is_ascii() { cut_off } else {
+            string
+                .char_indices()
+                .nth(cut_off)
+                .map(|(index, _)| index)
+                .unwrap() 
+        };
+        let off_split = string.split_off(byte_offset);
+        (string, off_split)
+    }
+
+    fn parse_count_from_encoding(line: String, pattern_length: usize) -> (String, u32) {
+        let (line, count) = Self::split_off_chars(line, pattern_length + 1);
+        let count = count.parse::<u32>().unwrap();
+        (line, count)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_off_chars() {
+        let string: String = "abcde".to_string();
+        let (left, right) = PatternTreesFactory::split_off_chars(string, 3);
+        assert_eq!(left, "abc".to_string());
+        assert_eq!(right, "de".to_string());
+        let string: String = "中¡bcde".to_string();
+        let (left, right) = PatternTreesFactory::split_off_chars(string, 4);
+        assert_eq!(left, "中¡bc".to_string());
+        assert_eq!(right, "de".to_string());
+    }
+
+    #[test]
+    fn test_sub_strings_max_len() {
+        let sub_strings = PatternTreesFactory::sub_strings_max_len("abcde".to_string(), 3);
+        assert_eq!(sub_strings[0], "e".to_string());
+        assert_eq!(sub_strings[1], "de".to_string());
+        assert_eq!(sub_strings[2], "cde".to_string());
+        assert_eq!(sub_strings[3], "bcd".to_string());
+        assert_eq!(sub_strings[4], "abc".to_string());
+        
+    }
+
 }
