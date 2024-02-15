@@ -70,7 +70,7 @@ impl PatternTreesFactory {
                 }
 
                 let is_ascii = line.is_ascii();
-                let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees);
+                let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees, is_ascii);
                 sub_strings.reverse();
                 for mut sub_string in sub_strings {
                     while !sub_string.is_empty() {
@@ -92,15 +92,23 @@ impl PatternTreesFactory {
         Ok(PatternTrees::new(pattern_trees))
     }
 
-    fn sub_strings_max_len(string: String, max_len: usize) -> Vec<String> {
+    fn sub_strings_max_len(string: String, max_len: usize, is_ascii: bool) -> Vec<String> {
         let mut sub_strings: Vec<String> = Vec::with_capacity(15);
-        let string_char_count = string.chars().count();
-        for i in 0..string_char_count {
-            sub_strings.push(string
-                             .chars()
-                             .skip(string_char_count - i - 1).take(max_len.min(i + 1))
-                             .collect()
-                             );
+        if is_ascii {
+            let string_char_count = string.len();
+            for i in 0..string_char_count {
+                sub_strings.push(string[string_char_count - i - 1..string_char_count - i - 1 + max_len.min(i + 1)].to_string());
+            }
+        } else {
+            let string_char_count = string.chars().count();
+            for i in 0..string_char_count {
+                sub_strings.push(string
+                                 .chars()
+                                 .skip(string_char_count - i - 1).take(max_len.min(i + 1))
+                                 .collect()
+                                 );
+            }
+
         }
         sub_strings
     }
@@ -197,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_sub_strings_max_len() {
-        let sub_strings = PatternTreesFactory::sub_strings_max_len("abcde".to_string(), 3);
+        let sub_strings = PatternTreesFactory::sub_strings_max_len("abcde".to_string(), 3, true);
         assert_eq!(sub_strings[0], "e".to_string());
         assert_eq!(sub_strings[1], "de".to_string());
         assert_eq!(sub_strings[2], "cde".to_string());
