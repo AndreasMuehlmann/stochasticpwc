@@ -65,20 +65,19 @@ impl PatternTreesFactory {
                     }
                 };
 
-                if line.is_empty() {
+                if line.is_empty() || !line.is_ascii(){
                     continue
                 }
 
-                let is_ascii = line.is_ascii();
-                let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees, is_ascii);
+                let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees);
                 sub_strings.reverse();
                 for mut sub_string in sub_strings {
                     while !sub_string.is_empty() {
                         let split_sub_string = Self::split_end(sub_string);
                         sub_string = split_sub_string.0;
                         let following_letter = split_sub_string.1;
-                        let pattern_length = if is_ascii { sub_string.len() } else { sub_string.chars().count() };
-                        Self::insert_kv_pair(&mut pattern_trees[pattern_length], sub_string.clone(), Follower::new(1, following_letter));
+                        let pattern_length = sub_string.len();
+                        Self::insert_kv_pair(&mut pattern_trees[pattern_length], &sub_string, Follower::new(1, following_letter));
                     }
                 }
             }
@@ -92,23 +91,11 @@ impl PatternTreesFactory {
         Ok(PatternTrees::new(pattern_trees))
     }
 
-    fn sub_strings_max_len(string: String, max_len: usize, is_ascii: bool) -> Vec<String> {
-        let mut sub_strings: Vec<String> = Vec::with_capacity(15);
-        if is_ascii {
-            let string_char_count = string.len();
-            for i in 0..string_char_count {
-                sub_strings.push(string[string_char_count - i - 1..string_char_count - i - 1 + max_len.min(i + 1)].to_string());
-            }
-        } else {
-            let string_char_count = string.chars().count();
-            for i in 0..string_char_count {
-                sub_strings.push(string
-                                 .chars()
-                                 .skip(string_char_count - i - 1).take(max_len.min(i + 1))
-                                 .collect()
-                                 );
-            }
-
+    fn sub_strings_max_len(string: String, max_len: usize) -> Vec<String> {
+        let mut sub_strings: Vec<String> = Vec::with_capacity(10);
+        let string_char_count = string.len();
+        for i in 0..string_char_count {
+            sub_strings.push(string[string_char_count - i - 1..string_char_count - i - 1 + max_len.min(i + 1)].to_string());
         }
         sub_strings
     }
@@ -130,7 +117,7 @@ impl PatternTreesFactory {
             };
 
             let line = line.trim();
-            if line.is_empty() {
+            if line.is_empty() || !line.is_ascii(){
                 continue
             }
             if line == "---" {
@@ -142,13 +129,13 @@ impl PatternTreesFactory {
 
             let (line, count) = Self::parse_count_from_encoding(line.to_string(), pattern_length);
             let (pattern, following_letter) = Self::split_end(line);
-            Self::insert_kv_pair(&mut pattern_tree, pattern, Follower::new(count, following_letter))
+            Self::insert_kv_pair(&mut pattern_tree, &pattern, Follower::new(count, following_letter))
         }
         Ok(PatternTrees::new(pattern_trees))
     }
 
-    fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: String, new_follower: Follower) {
-        if let Some(followers) = pattern_tree.get_mut(&pattern) {
+    fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: &str, new_follower: Follower) {
+        if let Some(followers) = pattern_tree.get_mut(pattern) {
             for follower in followers.iter_mut() {
                 if follower.letter == new_follower.letter {
                     follower.count += 1; 
@@ -159,7 +146,7 @@ impl PatternTreesFactory {
         } else {
             let mut followers = Vec::with_capacity(10);
             followers.push(new_follower);
-            pattern_tree.insert(pattern, followers);
+            pattern_tree.insert(pattern.to_string(), followers);
         }
     }
 
@@ -169,14 +156,7 @@ impl PatternTreesFactory {
     }
 
     fn split_off_chars(mut string: String, cut_off: usize) -> (String, String) {
-        let byte_offset = if string.is_ascii() { cut_off } else {
-            string
-                .char_indices()
-                .nth(cut_off)
-                .map(|(index, _)| index)
-                .unwrap() 
-        };
-        let off_split = string.split_off(byte_offset);
+        let off_split = string.split_off(cut_off);
         (string, off_split)
     }
 
@@ -197,15 +177,11 @@ mod tests {
         let (left, right) = PatternTreesFactory::split_off_chars(string, 3);
         assert_eq!(left, "abc".to_string());
         assert_eq!(right, "de".to_string());
-        let string: String = "中¡bcde".to_string();
-        let (left, right) = PatternTreesFactory::split_off_chars(string, 4);
-        assert_eq!(left, "中¡bc".to_string());
-        assert_eq!(right, "de".to_string());
     }
 
     #[test]
     fn test_sub_strings_max_len() {
-        let sub_strings = PatternTreesFactory::sub_strings_max_len("abcde".to_string(), 3, true);
+        let sub_strings = PatternTreesFactory::sub_strings_max_len("abcde".to_string(), 3);
         assert_eq!(sub_strings[0], "e".to_string());
         assert_eq!(sub_strings[1], "de".to_string());
         assert_eq!(sub_strings[2], "cde".to_string());
