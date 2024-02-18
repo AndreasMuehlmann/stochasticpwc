@@ -20,33 +20,25 @@ impl Follower {
 
 pub type PatternTree = BTreeMap<String, Vec<Follower>>;
 
+#[derive(Debug)]
 pub struct PatternTrees {
     pattern_trees: Vec<PatternTree>,
     probability_distributions: Vec<BTreeMap<u64, f64>>,
-    expected_values: Vec<f64>,
-    standard_deviations: Vec<f64>,
     cut_off_counts: Vec<u64>,
 }
 
 impl PatternTrees {
     pub fn new(pattern_trees: Vec<PatternTree>) -> Self {
         let mut probability_distributions: Vec<BTreeMap<u64, f64>>= Vec::new();
-        let mut expected_values: Vec<f64> = Vec::new();
-        let mut standard_deviations: Vec<f64> = Vec::new();
         let mut cut_off_counts: Vec<u64> = Vec::new();
         for pattern_tree in pattern_trees.iter() {
             let probability_distribution = Self::count_probability_distribution(&pattern_tree);
-            let expected_value = Self::expected_value(&probability_distribution);
-            standard_deviations.push(Self::standard_deviation(&probability_distribution, expected_value));
             cut_off_counts.push(Self::cut_off_count(&probability_distribution));
-            expected_values.push(expected_value);
             probability_distributions.push(probability_distribution);
         }
         Self {
             pattern_trees,
             probability_distributions,
-            expected_values,
-            standard_deviations,
             cut_off_counts,
         } 
     }
@@ -60,22 +52,6 @@ impl PatternTrees {
             }
         }
         0
-    }
-
-    fn standard_deviation(probability_distribution: &BTreeMap<u64, f64>, expected_value: f64) -> f64 {
-        let mut variance: f64 = 0.0;
-        for (count, count_probability) in probability_distribution.iter() {
-            variance += (*count as f64 - expected_value).powi(2) * count_probability;
-        }
-        variance.sqrt()
-    }
-
-    fn expected_value(probability_distribution: &BTreeMap<u64, f64>) -> f64 {
-        let mut expected_value: f64 = 0.0;
-        for (count, count_probability) in probability_distribution.iter() {
-            expected_value += *count as f64 * count_probability;
-        }
-        expected_value
     }
 
     fn count_probability_distribution(pattern_tree: &PatternTree) -> BTreeMap<u64, f64> {
@@ -105,20 +81,12 @@ impl PatternTrees {
     pub fn statistically_significant(&self, pattern: &str) -> BTreeSet<char> {
         const LESS_PATTERN_LENGTH_FROM_MAX: usize = 2;
         let mut followers: BTreeSet<char> = BTreeSet::new();
-        let mut min_pattern_tree;
 
         let max = self.pattern_trees.len().min(pattern.len() + 1);
-        if max < LESS_PATTERN_LENGTH_FROM_MAX {
-            min_pattern_tree = 0;
-        } else {
-            min_pattern_tree = max - LESS_PATTERN_LENGTH_FROM_MAX;
-        }
-        if pattern.len() >= 1 {
-            min_pattern_tree = 1;
-        }
+        let min_pattern_tree = if max < LESS_PATTERN_LENGTH_FROM_MAX { 0 } else { max - LESS_PATTERN_LENGTH_FROM_MAX };
+
         for index in min_pattern_tree..max {
-            let index = max - index + min_pattern_tree - 1;
-            if let Some(tree_followers) = self.pattern_trees[index].get(&pattern[..index]) {
+            if let Some(tree_followers) = self.pattern_trees[index].get(&pattern[pattern.len() - index..]) {
                 let probable_followers: Vec<char> = tree_followers
                     .iter()
                     .filter_map(
@@ -140,17 +108,6 @@ impl PatternTrees {
             }
             println!("\n");
         }
-        println!("EXPECTED VALUES");
-        for expected_value in self.expected_values.iter() {
-            print!("{:.7}, ", expected_value);
-        }
-        println!();
-
-        println!("STANDARD DEEVIATION");
-        for standard_deviation in self.standard_deviations.iter() {
-            print!("{:.7}, ", standard_deviation);
-        }
-        println!();
 
         println!("CUT OFFS");
         for cut_off_count in self.cut_off_counts.iter() {
@@ -165,6 +122,7 @@ impl PatternTrees {
             None => "pattern_tree_encoding.txt",
         };
         self.write_encoding(path).unwrap_or_else(|err| eprintln!("{}", err));
+        println!("wrote pattern tree encoding");
     }
 
     pub fn write_encoding(&self, path: &str) -> Result<(), io::Error>{
