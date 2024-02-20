@@ -18,8 +18,11 @@ use crate::pattern_trees::PatternTrees;
 
 /// Program to crack passwords with probability
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, arg_required_else_help(false))]
+#[command(version, about, long_about = None)]
 struct Args {
+    #[arg(short, long)]
+    count_pattern_trees: usize,
+
     #[arg(short, long)]
     encoding: Option<String>,
 
@@ -30,13 +33,13 @@ struct Args {
     list_passwords: Option<String>,
 
     #[arg(long)]
-    encoding_path: Option<String>,
+    path_write_encoding: Option<String>,
 
     #[arg(long)]
-    probabilities_path: Option<String>,
+    path_write_probabilities: Option<String>,
 }
 
-fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) {
+fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> String {
     let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
     queue.push_back("".to_string());
     while !queue.is_empty() {
@@ -49,7 +52,7 @@ fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) {
         }
         if current == hash {
             println!("hash {} matches password {}", hash, current);
-            return;
+            return current;
         }
         for stat_signif in pattern_trees.statistically_significant(&current).iter() {
             let mut new_password = current.clone();
@@ -57,28 +60,41 @@ fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) {
             queue.push_back(new_password);
         }
     }
+    return "".to_string();
 }
 
 fn main() {
     let args: Args = Args::parse();
-    let pattern_trees_factory = PatternTreesFactory::new(7);
+    let pattern_trees_factory = PatternTreesFactory::new(args.count_pattern_trees);
     let pattern_trees: PatternTrees;
-    if let Some(list_passwords) = args.list_passwords {
-        pattern_trees = pattern_trees_factory.from_paths_error_handling(vec![list_passwords]);
+
+    if let Some(encoding) = args.encoding {
+        println!("INFO: Building pattern tree from encoding...");
+        pattern_trees = pattern_trees_factory.pattern_trees_with_error_handling(
+            PatternTreesFactory::from_encoding, "an encoding".to_string(),  encoding);
+    } else if let Some(password_list) = args.list_passwords {
+        println!("INFO: Building pattern tree from password list...");
+        pattern_trees = pattern_trees_factory.pattern_trees_with_error_handling(
+            PatternTreesFactory::from_password_list, "a list of passwords".to_string(), password_list);
     } else {
-        pattern_trees = pattern_trees_factory.from_paths_error_handling(vec![]);
+        eprintln!("ERROR: either option --encoding or --list_passwords has to be given");
+        return;
     }
-    if let Some(encoding_path) = args.encoding_path {
-        pattern_trees.write_encoding_error_handling(&encoding_path);
-    }
-
-    println!("built pattern trees");
+    println!("INFO: Built pattern trees");
     
-    if let Some(probabilities_path) = args.probabilities_path {
-        pattern_trees.write_probability_distribution(&probabilities_path);
-    }
+    if let Some(path_write_probabilities) = args.path_write_probabilities {
 
+        println!("INFO: Writing probabilities...");
+        pattern_trees.write_probability_distribution(&path_write_probabilities);
+        println!("INFO: Wrote probabilities");
+    }
+    if let Some(path_write_encoding) = args.path_write_encoding {
+        println!("INFO: Writing encoding...");
+        pattern_trees.write_probability_distribution(&path_write_encoding);
+        println!("INFO: Wrote encoding");
+    }
     if let Some(password_hash) = args.password_hash {
-        crack_hash_bfs(pattern_trees, password_hash.len(), password_hash);
+        println!("INFO: Starting attack");
+        println!("DONE: Found {}", crack_hash_bfs(pattern_trees, password_hash.len(), password_hash));
     }
 }

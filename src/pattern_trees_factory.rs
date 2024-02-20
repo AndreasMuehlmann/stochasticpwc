@@ -17,28 +17,14 @@ impl PatternTreesFactory {
         }
     }
 
-    pub fn from_paths_error_handling(&self, paths: Vec<String>) -> PatternTrees {
-        let pattern_trees: PatternTrees;
-        if paths.len() > 1 {
-            pattern_trees = self.from_password_lists(&paths[1..]).unwrap_or_else(|err| {
-                eprint!("{}", err);
-                Self::from_encoding_error_handling()
-            });
-        }
-        else {
-            pattern_trees = Self::from_encoding_error_handling();
-        }
-        pattern_trees
-    }
-
-    pub fn from_encoding_error_handling() -> PatternTrees {
-        let mut path = "pattern_tree_encoding.txt".to_string();
+    pub fn pattern_trees_with_error_handling(&self, parser: fn(&PatternTreesFactory, &str) -> Result<PatternTrees,
+        io::Error>, content: String, mut path: String) -> PatternTrees { 
         let pattern_trees = loop {
-            match Self::from_encoding(&path) {
+            match parser(self, &path) {
                 Ok(pattern_trees) => break pattern_trees,
                 Err(err) => {
-                    eprintln!("Error opening file: {}", err);
-                    println!("input a valid file path for a pattern tree encoding");
+                    eprintln!("ERROR: {}", err);
+                    println!("Input a valid file path, that contains {}", content);
                     io::stdin()
                         .read_line(&mut path)
                         .expect("Failed to read from stdin");
@@ -48,37 +34,35 @@ impl PatternTreesFactory {
         pattern_trees
     }
 
-    pub fn from_password_lists(&self, paths: &[String]) -> Result<PatternTrees, io::Error> {
+    pub fn from_password_list(&self, path: &str) -> Result<PatternTrees, io::Error> {
         let mut pattern_trees: Vec<PatternTree> = vec![];
         for _ in 0..self.count_pattern_trees {
             pattern_trees.push(PatternTree::new());
         }
-        for path in paths {
-            let file = File::open(path)?;
-            let reader = BufReader::new(file);
-            for line in reader.lines() {
-                let line = match line {
-                    Ok(line_content) => line_content,
-                    Err(err) => {
-                        eprintln!("Error reading line in pattern_trees_from_pw_lists: {}", err);
-                        continue;
-                    }
-                };
-
-                if line.is_empty() || !line.is_ascii(){
-                    continue
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let line = match line {
+                Ok(line_content) => line_content,
+                Err(err) => {
+                    eprintln!("ERROR: Reading line in pattern_trees_from_pw_lists: {}", err);
+                    continue;
                 }
+            };
 
-                let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees);
-                sub_strings.reverse();
-                for mut sub_string in sub_strings {
-                    while !sub_string.is_empty() {
-                        let split_sub_string = Self::split_end(sub_string);
-                        sub_string = split_sub_string.0;
-                        let following_letter = split_sub_string.1;
-                        let pattern_length = sub_string.len();
-                        Self::insert_kv_pair(&mut pattern_trees[pattern_length], &sub_string, Follower::new(1, following_letter));
-                    }
+            if line.is_empty() || !line.is_ascii(){
+                continue
+            }
+
+            let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees);
+            sub_strings.reverse();
+            for mut sub_string in sub_strings {
+                while !sub_string.is_empty() {
+                    let split_sub_string = Self::split_end(sub_string);
+                    sub_string = split_sub_string.0;
+                    let following_letter = split_sub_string.1;
+                    let pattern_length = sub_string.len();
+                    Self::insert_kv_pair(&mut pattern_trees[pattern_length], &sub_string, Follower::new(1, following_letter));
                 }
             }
         }
@@ -100,7 +84,7 @@ impl PatternTreesFactory {
         sub_strings
     }
 
-    pub fn from_encoding(path: &str) -> Result<PatternTrees, io::Error> {
+    pub fn from_encoding(&self, path: &str) -> Result<PatternTrees, io::Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let mut pattern_length: usize = 0;
@@ -111,7 +95,7 @@ impl PatternTreesFactory {
             let line = match line {
                 Ok(line_content) => line_content,
                 Err(err) => {
-                    eprintln!("Error reading line in parse_pattern_trees: {}", err);
+                    eprintln!("ERROR: Reading line in parse_pattern_trees: {}", err);
                     continue;
                 }
             };
@@ -124,6 +108,9 @@ impl PatternTreesFactory {
                 pattern_trees.push(pattern_tree);
                 pattern_tree = PatternTree::new();
                 pattern_length += 1;
+                if pattern_length > self.count_pattern_trees - 1 {
+                    return Ok(PatternTrees::new(pattern_trees));
+                }
                 continue;
             }
 
