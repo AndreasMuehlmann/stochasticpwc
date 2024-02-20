@@ -24,7 +24,9 @@ impl PatternTreesFactory {
                 Ok(pattern_trees) => break pattern_trees,
                 Err(err) => {
                     eprintln!("ERROR: {}", err);
+                    println!("Previous path {}", path);
                     println!("Input a valid file path, that contains {}", content);
+                    path.clear();
                     io::stdin()
                         .read_line(&mut path)
                         .expect("Failed to read from stdin");

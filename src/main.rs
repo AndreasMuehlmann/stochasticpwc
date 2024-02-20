@@ -39,7 +39,7 @@ struct Args {
     path_write_probabilities: Option<String>,
 }
 
-fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> String {
+fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
     let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
     queue.push_back("".to_string());
     while !queue.is_empty() {
@@ -51,8 +51,7 @@ fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> 
             println!("{}", current);
         }
         if current == hash {
-            println!("hash {} matches password {}", hash, current);
-            return current;
+            return Some(current);
         }
         for stat_signif in pattern_trees.statistically_significant(&current).iter() {
             let mut new_password = current.clone();
@@ -60,7 +59,7 @@ fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> 
             queue.push_back(new_password);
         }
     }
-    return "".to_string();
+    return None;
 }
 
 fn main() {
@@ -90,11 +89,16 @@ fn main() {
     }
     if let Some(path_write_encoding) = args.path_write_encoding {
         println!("INFO: Writing encoding...");
-        pattern_trees.write_probability_distribution(&path_write_encoding);
+        pattern_trees.write_encoding(&path_write_encoding);
         println!("INFO: Wrote encoding");
     }
     if let Some(password_hash) = args.password_hash {
-        println!("INFO: Starting attack");
-        println!("DONE: Found {}", crack_hash_bfs(pattern_trees, password_hash.len(), password_hash));
+        println!("INFO: Attacking...");
+        if let Some(password) = crack_hash_bfs(pattern_trees, password_hash.len(), password_hash) {
+            println!("DONE: Found {}", password);
+        }
+        else {
+            println!("DONE: Nothing Found");
+        }
     }
 }
