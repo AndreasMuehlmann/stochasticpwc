@@ -47,7 +47,7 @@ impl PatternTrees {
         let mut summed_probability: f64 = 0.0;
         for (count, count_probability) in probability_distribution.iter() {
             summed_probability += count_probability;
-            if summed_probability > 0.5 {
+            if summed_probability > 0.3 {
                 return *count;
             }
         }
@@ -98,13 +98,14 @@ impl PatternTrees {
         followers
     }
 
-    pub fn print_probability_distribution(&self) {
+    pub fn write_probability_distribution(&self, path: &str) -> Result<(), io::Error> {
         println!("PROBABILITY DISTRIBUTIONS");
+        let mut output = File::create(path)?;
         for (index, probability_distribution) in self.probability_distributions.iter().enumerate() {
             println!("PATTERNTREE {}", index);
             for (count, count_probability) in probability_distribution.iter() {
-                print!("{} ", count);
-                println!("{:.6}; ", count_probability);
+                write!(output, "{} ", count);
+                writeln!(output, "{:.6}; ", count_probability);
             }
             println!("\n");
         }
@@ -114,18 +115,15 @@ impl PatternTrees {
             print!("{}, ", cut_off_count);
         }
         println!();
+        Ok(())
     }
 
-    pub fn write_encoding_error_handling(&self, path: Option<&str>) {
-        let path: &str = match path {
-            Some(path) => path,
-            None => "pattern_tree_encoding.txt",
-        };
+    pub fn write_encoding_error_handling(&self, path: &str) {
         self.write_encoding(path).unwrap_or_else(|err| eprintln!("{}", err));
         println!("wrote pattern tree encoding");
     }
 
-    pub fn write_encoding(&self, path: &str) -> Result<(), io::Error>{
+    pub fn write_encoding(&self, path: &str) -> Result<(), io::Error> {
         let mut output = File::create(path)?;
         for pattern_tree in self.pattern_trees.iter() {
             for (pattern, followers) in pattern_tree {
