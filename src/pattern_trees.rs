@@ -98,29 +98,42 @@ impl PatternTrees {
         followers
     }
 
-    pub fn write_probability_distribution(&self, path: &str) -> Result<(), io::Error> {
-        println!("PROBABILITY DISTRIBUTIONS");
-        let mut output = File::create(path)?;
-        for (index, probability_distribution) in self.probability_distributions.iter().enumerate() {
-            println!("PATTERNTREE {}", index);
-            for (count, count_probability) in probability_distribution.iter() {
-                write!(output, "{} ", count);
-                writeln!(output, "{:.6}; ", count_probability);
+    pub fn write_with_error_handling(&self, write_function: fn(&PatternTrees, &str) -> Result<(),
+        io::Error>, expected_content: String, mut path: String) {
+        loop {
+            match write_function(self, &path) {
+                Ok(()) => return,
+                Err(err) => {
+                    eprintln!("ERROR: {}", err);
+                    println!("Previous path {}", path);
+                    println!("Input a valid file path, that contains {}", expected_content);
+                    path.clear();
+                    io::stdin()
+                        .read_line(&mut path)
+                        .expect("Failed to read from stdin");
+                }
             }
-            println!("\n");
-        }
-
-        println!("CUT OFFS");
-        for cut_off_count in self.cut_off_counts.iter() {
-            print!("{}, ", cut_off_count);
-        }
-        println!();
-        Ok(())
+        };
     }
 
-    pub fn write_encoding_error_handling(&self, path: &str) {
-        self.write_encoding(path).unwrap_or_else(|err| eprintln!("{}", err));
-        println!("wrote pattern tree encoding");
+    pub fn write_probability_distribution(&self, path: &str) -> Result<(), io::Error> {
+        let mut output = File::create(path)?;
+        writeln!(output, "PROBABILITY DISTRIBUTIONS")?;
+        for (index, probability_distribution) in self.probability_distributions.iter().enumerate() {
+            writeln!(output, "PATTERNTREE {}", index)?;
+            for (count, count_probability) in probability_distribution.iter() {
+                write!(output, "{:<8} ", count)?;
+                writeln!(output, "{:.8} ", count_probability)?;
+            }
+            writeln!(output, "\n")?;
+        }
+
+        writeln!(output, "CUT OFFS")?;
+        for cut_off_count in self.cut_off_counts.iter() {
+            write!(output, "{}, ", cut_off_count)?;
+        }
+        writeln!(output)?;
+        Ok(())
     }
 
     pub fn write_encoding(&self, path: &str) -> Result<(), io::Error> {

@@ -18,14 +18,14 @@ impl PatternTreesFactory {
     }
 
     pub fn pattern_trees_with_error_handling(&self, parser: fn(&PatternTreesFactory, &str) -> Result<PatternTrees,
-        io::Error>, content: String, mut path: String) -> PatternTrees { 
+        io::Error>, expected_content: String, mut path: String) -> PatternTrees { 
         let pattern_trees = loop {
             match parser(self, &path) {
                 Ok(pattern_trees) => break pattern_trees,
                 Err(err) => {
                     eprintln!("ERROR: {}", err);
                     println!("Previous path {}", path);
-                    println!("Input a valid file path, that contains {}", content);
+                    println!("Input a valid file path, that contains {}", expected_content);
                     path.clear();
                     io::stdin()
                         .read_line(&mut path)

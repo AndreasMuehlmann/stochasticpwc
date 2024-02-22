@@ -9,7 +9,6 @@ use crate::pattern_trees_factory::PatternTreesFactory;
 use crate::pattern_trees::PatternTrees;
 
 
-//TODO: command line arguments
 //TODO: multithreading
 //TODO: exploration rate
 //TODO: probability of word
@@ -17,10 +16,10 @@ use crate::pattern_trees::PatternTrees;
 
 
 /// Program to crack passwords with probability
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = 5)]
     count_pattern_trees: usize,
 
     #[arg(short, long)]
@@ -76,20 +75,21 @@ fn main() {
         pattern_trees = pattern_trees_factory.pattern_trees_with_error_handling(
             PatternTreesFactory::from_password_list, "a list of passwords".to_string(), password_list);
     } else {
-        eprintln!("ERROR: either option --encoding or --list_passwords has to be given");
-        return;
+        pattern_trees = pattern_trees_factory.pattern_trees_with_error_handling(
+            PatternTreesFactory::from_encoding, "an encoding".to_string(),  "pattern_tree_encoding.txt".to_string());
     }
     println!("INFO: Built pattern trees");
     
     if let Some(path_write_probabilities) = args.path_write_probabilities {
-
         println!("INFO: Writing probabilities...");
-        pattern_trees.write_probability_distribution(&path_write_probabilities);
+        pattern_trees.write_with_error_handling(PatternTrees::write_probability_distribution, 
+                                                "the probability distribution of the counts of patterns".to_string(), path_write_probabilities);
         println!("INFO: Wrote probabilities");
     }
     if let Some(path_write_encoding) = args.path_write_encoding {
         println!("INFO: Writing encoding...");
-        pattern_trees.write_encoding(&path_write_encoding);
+        pattern_trees.write_with_error_handling(PatternTrees::write_encoding, 
+                                                "the encoding for the pattern trees".to_string(), path_write_encoding);
         println!("INFO: Wrote encoding");
     }
     if let Some(password_hash) = args.password_hash {
