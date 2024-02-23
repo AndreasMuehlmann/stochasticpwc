@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::sync::Arc;
 use std::thread;
-use std::iter::zip;
 
 use clap::Parser;
 
@@ -50,7 +49,7 @@ fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) 
     let queue: Arc<Mutex<VecDeque<String>>> = Arc::new(Mutex::new(queue));
     let pattern_trees: Arc<PatternTrees> = Arc::new(pattern_trees);
     let mut handles = vec![];
-    for _ in 0..2 {
+    for _ in 0..15 {
         let queue = Arc::clone(&queue);
         let pattern_trees = Arc::clone(&pattern_trees);
         let hash = hash.clone();
@@ -67,31 +66,30 @@ fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) 
                     current = queue.pop_back().unwrap();
                 }
                 if current.len() > max_len {
-                    continue
+                    continue;
                 }
-                if current.starts_with(&hash[..1]) {
-                    println!("{}", current);
-                }
-                /*
-                println!("{}", current);
-                if current == hash {
-                    println!("{}", current);
-                }
-                */
-                let all_stat_signif = pattern_trees.statistically_significant(&current);
-                let clones: Vec<String> = (0..all_stat_signif.len()).map(|_| current.clone()).collect();
-
-                let mut queue = queue.lock().unwrap();
-                for (stat_signif, mut cloned) in zip(all_stat_signif, clones) {
-                    cloned.push(stat_signif);
-                    queue.push_back(cloned);
+                let mut own_queue: VecDeque<String> = VecDeque::with_capacity(100);
+                own_queue.push_back(current.to_string());
+                while !own_queue.is_empty() {
+                    let current: String = own_queue.pop_back().unwrap();
+                    if current.len() > max_len {
+                        continue
+                    }
+                    if current.starts_with(&hash[..2]) {
+                        println!("{}", current);
+                    }
+                    for stat_signif in pattern_trees.statistically_significant(&current).iter() {
+                        let mut new_password = current.clone();
+                        new_password.push(*stat_signif);
+                        own_queue.push_back(new_password);
+                    }
                 }
             };
         });
         handles.push(handle);
     }
     for handle in handles {
-        let _ = handle.join();
+        handle.join().unwrap();
     }
     return Some("string".to_string());
 }
