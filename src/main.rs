@@ -1,4 +1,8 @@
 use std::collections::VecDeque;
+use std::sync::Mutex;
+use std::sync::Arc;
+use std::thread;
+use std::iter::zip;
 
 use clap::Parser;
 
@@ -36,6 +40,60 @@ struct Args {
 
     #[arg(long)]
     path_write_probabilities: Option<String>,
+}
+
+fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
+    let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
+    let mut alphabet = pattern_trees.alphabet();
+    alphabet.reverse();
+    queue.extend(alphabet.iter().map(|letter| letter.to_string()));
+    let queue: Arc<Mutex<VecDeque<String>>> = Arc::new(Mutex::new(queue));
+    let pattern_trees: Arc<PatternTrees> = Arc::new(pattern_trees);
+    let mut handles = vec![];
+    for _ in 0..2 {
+        let queue = Arc::clone(&queue);
+        let pattern_trees = Arc::clone(&pattern_trees);
+        let hash = hash.clone();
+
+        let handle = thread::spawn(move || {
+            loop {
+                let current: String;
+                {
+                    let mut queue = queue.lock().unwrap();
+                    //queue = dbg!(queue);
+                    if queue.is_empty() {
+                        break;
+                    }
+                    current = queue.pop_back().unwrap();
+                }
+                if current.len() > max_len {
+                    continue
+                }
+                if current.starts_with(&hash[..1]) {
+                    println!("{}", current);
+                }
+                /*
+                println!("{}", current);
+                if current == hash {
+                    println!("{}", current);
+                }
+                */
+                let all_stat_signif = pattern_trees.statistically_significant(&current);
+                let clones: Vec<String> = (0..all_stat_signif.len()).map(|_| current.clone()).collect();
+
+                let mut queue = queue.lock().unwrap();
+                for (stat_signif, mut cloned) in zip(all_stat_signif, clones) {
+                    cloned.push(stat_signif);
+                    queue.push_back(cloned);
+                }
+            };
+        });
+        handles.push(handle);
+    }
+    for handle in handles {
+        let _ = handle.join();
+    }
+    return Some("string".to_string());
 }
 
 fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
@@ -94,7 +152,7 @@ fn main() {
     }
     if let Some(password_hash) = args.password_hash {
         println!("INFO: Attacking...");
-        if let Some(password) = crack_hash_bfs(pattern_trees, password_hash.len(), password_hash) {
+        if let Some(password) = crack_hash_bfs_mp(pattern_trees, password_hash.len(), password_hash) {
             println!("DONE: Found {}", password);
         }
         else {

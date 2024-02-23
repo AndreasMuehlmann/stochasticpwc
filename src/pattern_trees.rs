@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, Write};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Follower {
     pub count: u32,
     pub letter: char,
@@ -20,7 +20,7 @@ impl Follower {
 
 pub type PatternTree = BTreeMap<String, Vec<Follower>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PatternTrees {
     pattern_trees: Vec<PatternTree>,
     probability_distributions: Vec<BTreeMap<u64, f64>>,
@@ -41,6 +41,10 @@ impl PatternTrees {
             probability_distributions,
             cut_off_counts,
         } 
+    }
+
+    pub fn alphabet(&self) -> Vec<char> {
+        self.pattern_trees[0].get("").unwrap().iter().map(|follower| follower.letter).collect()
     }
 
     fn cut_off_count(probability_distribution: &BTreeMap<u64, f64>) -> u64 {
