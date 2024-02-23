@@ -12,7 +12,7 @@ use crate::pattern_trees_factory::PatternTreesFactory;
 use crate::pattern_trees::PatternTrees;
 
 
-//TODO: multithreading
+//TODO: multithreading with channels
 //TODO: exploration rate
 //TODO: probability of word
 //TODO: average of probabilities of words
@@ -43,13 +43,13 @@ struct Args {
 
 fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
     let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
-    let mut alphabet = pattern_trees.alphabet();
-    alphabet.reverse();
-    queue.extend(alphabet.iter().map(|letter| letter.to_string()));
+    queue.extend(pattern_trees.patterns(2));
     let queue: Arc<Mutex<VecDeque<String>>> = Arc::new(Mutex::new(queue));
+
     let pattern_trees: Arc<PatternTrees> = Arc::new(pattern_trees);
+
     let mut handles = vec![];
-    for _ in 0..15 {
+    for _ in 0..16 {
         let queue = Arc::clone(&queue);
         let pattern_trees = Arc::clone(&pattern_trees);
         let hash = hash.clone();
@@ -59,7 +59,6 @@ fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) 
                 let current: String;
                 {
                     let mut queue = queue.lock().unwrap();
-                    //queue = dbg!(queue);
                     if queue.is_empty() {
                         break;
                     }
@@ -75,7 +74,7 @@ fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) 
                     if current.len() > max_len {
                         continue
                     }
-                    if current.starts_with(&hash[..2]) {
+                    if current.starts_with(&hash[..4]) {
                         println!("{}", current);
                     }
                     for stat_signif in pattern_trees.statistically_significant(&current).iter() {
@@ -102,11 +101,11 @@ fn crack_hash_bfs(pattern_trees: PatternTrees, max_len: usize, hash: String) -> 
         if current.len() > max_len {
             continue
         }
-        if current.starts_with(&hash[..2]) {
+        if current.starts_with(&hash[..4]) {
             println!("{}", current);
         }
         if current == hash {
-            return Some(current);
+            //return Some(current);
         }
         for stat_signif in pattern_trees.statistically_significant(&current).iter() {
             let mut new_password = current.clone();

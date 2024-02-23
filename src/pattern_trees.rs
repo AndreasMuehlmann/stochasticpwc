@@ -47,11 +47,15 @@ impl PatternTrees {
         self.pattern_trees[0].get("").unwrap().iter().map(|follower| follower.letter).collect()
     }
 
+    pub fn patterns(&self, pattern_tree_index: usize) -> Vec<String> {
+       self.pattern_trees[pattern_tree_index].clone().into_keys().collect::<Vec<String>>()
+    }
+
     fn cut_off_count(probability_distribution: &BTreeMap<u64, f64>) -> u64 {
         let mut summed_probability: f64 = 0.0;
         for (count, count_probability) in probability_distribution.iter() {
             summed_probability += count_probability;
-            if summed_probability > 0.3 {
+            if summed_probability > 0.5 {
                 return *count;
             }
         }
