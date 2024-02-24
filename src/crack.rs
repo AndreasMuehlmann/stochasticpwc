@@ -76,17 +76,19 @@ pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threa
 pub fn crack(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
     let mut queue: VecDeque<Word> = VecDeque::with_capacity(100000);
     queue.push_back(Word::new("".to_string(), 1.0));
+    let mut probabilities: Vec<f64> = (0..max_len).map(|_| 0.0).collect();
+    let iir_faktor = 0.9;
     while !queue.is_empty() {
         let current: Word = queue.pop_back().unwrap();
-        if current.pattern.len() > max_len {
-            continue
-        }
-        if current.pattern.starts_with(&hash[..2]) {
-            println!("{}", current.pattern);
-        }
-        if current.pattern == hash {
-            return Some(current.pattern);
-        }
+
+        if current.pattern.starts_with(&hash[..3]) { println!("{}", current.pattern); }
+        if current.pattern == hash { return Some(current.pattern); }
+        if current.pattern.len() >= max_len { continue; }
+
+        probabilities[current.pattern.len()] =  iir_faktor * probabilities[current.pattern.len()]
+            + (1.0 - iir_faktor) * current.probability;
+        if probabilities[current.pattern.len()] > current.probability { continue; }
+
         for probable_follower in pattern_trees.probable_followers(&current.pattern).iter() {
             let mut new_password = current.pattern.clone();
             new_password.push(probable_follower.letter);
