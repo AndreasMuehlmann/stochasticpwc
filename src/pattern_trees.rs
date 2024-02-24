@@ -44,7 +44,7 @@ impl PatternTrees {
     }
 
     pub fn probable_followers(&self, pattern: &str) ->  Vec<ProbableFollower> {
-        let less_pattern_length_from_max: usize = self.pattern_trees.len() - 1;
+        let less_pattern_length_from_max: usize = 3;
         let mut probable_followers: Vec<ProbableFollower> = self.alphabet()
             .iter()
             .map(|letter| ProbableFollower::new(*letter, 0.0))

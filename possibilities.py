@@ -1,5 +1,5 @@
 def main():
-    length = 6
+    length = 14
     possibilities = 1
     for i in range(0, length):
         possibilities *= possibilities_for_pattern_length(i) / 2
