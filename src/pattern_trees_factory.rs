@@ -1,8 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufReader, BufRead};
 
-use crate::pattern_trees::Follower;
-use crate::pattern_trees::PatternTree;
+use crate::pattern_tree::{PatternTree, Follower};
 use crate::pattern_trees::PatternTrees;
 
 
@@ -64,16 +63,18 @@ impl PatternTreesFactory {
                     sub_string = split_sub_string.0;
                     let following_letter = split_sub_string.1;
                     let pattern_length = sub_string.len();
-                    Self::insert_kv_pair(&mut pattern_trees[pattern_length], &sub_string, Follower::new(1, following_letter));
+                    pattern_trees[pattern_length].insert(&sub_string, Follower::new(1, following_letter));
                 }
             }
         }
+        /*
         for pattern_tree in pattern_trees.iter_mut() {
-            for followers in pattern_tree.values_mut() {
-                // followers.retain(|follower| follower.count != 1);
+            for followers in pattern_tree.pattern_tree_implementation.values_mut() {
+                followers.retain(|follower| follower.count != 1);
                 followers.sort_by(|a, b| b.count.cmp(&a.count));
             }
         }
+        */
         Ok(PatternTrees::new(pattern_trees))
     }
 
@@ -118,26 +119,11 @@ impl PatternTreesFactory {
 
             let (line, count) = Self::parse_count_from_encoding(line.to_string(), pattern_length);
             let (pattern, following_letter) = Self::split_end(line);
-            Self::insert_kv_pair(&mut pattern_tree, &pattern, Follower::new(count, following_letter))
+            pattern_tree.insert(&pattern, Follower::new(count, following_letter));
         }
         Ok(PatternTrees::new(pattern_trees))
     }
 
-    fn insert_kv_pair(pattern_tree: &mut PatternTree, pattern: &str, new_follower: Follower) {
-        if let Some(followers) = pattern_tree.get_mut(pattern) {
-            for follower in followers.iter_mut() {
-                if follower.letter == new_follower.letter {
-                    follower.count += 1; 
-                    return;
-                }
-            }
-            followers.push(new_follower);
-        } else {
-            let mut followers = Vec::with_capacity(10);
-            followers.push(new_follower);
-            pattern_tree.insert(pattern.to_string(), followers);
-        }
-    }
 
     fn split_end(mut string: String) -> (String, char) {
         let following_letter = string.pop().unwrap();

@@ -5,6 +5,7 @@ use std::thread;
 
 use clap::Parser;
 
+mod pattern_tree;
 mod pattern_trees;
 mod pattern_trees_factory;
 
@@ -22,6 +23,10 @@ use crate::pattern_trees::PatternTrees;
 #[derive(Parser, Debug, Default)]
 #[command(version, about, long_about = None)]
 struct Args {
+
+    #[arg(short, long, default_value_t = 1)]
+    threads: usize,
+
     #[arg(short, long, default_value_t = 5)]
     count_pattern_trees: usize,
 
@@ -41,7 +46,7 @@ struct Args {
     path_write_probabilities: Option<String>,
 }
 
-fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
+fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threads: usize) -> Option<String> {
     let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
     queue.extend(pattern_trees.patterns(2));
     let queue: Arc<Mutex<VecDeque<String>>> = Arc::new(Mutex::new(queue));
@@ -49,7 +54,7 @@ fn crack_hash_bfs_mp(pattern_trees: PatternTrees, max_len: usize, hash: String) 
     let pattern_trees: Arc<PatternTrees> = Arc::new(pattern_trees);
 
     let mut handles = vec![];
-    for _ in 0..16 {
+    for _ in 0..threads {
         let queue = Arc::clone(&queue);
         let pattern_trees = Arc::clone(&pattern_trees);
         let hash = hash.clone();
@@ -149,7 +154,9 @@ fn main() {
     }
     if let Some(password_hash) = args.password_hash {
         println!("INFO: Attacking...");
-        if let Some(password) = crack_hash_bfs_mp(pattern_trees, password_hash.len(), password_hash) {
+        let optional_password = if args.threads == 1 {crack_hash_bfs(pattern_trees, password_hash.len(), password_hash)}
+            else {crack_hash_bfs_mp(pattern_trees, password_hash.len(), password_hash, args.threads)};
+        if let Some(password) = optional_password {
             println!("DONE: Found {}", password);
         }
         else {
