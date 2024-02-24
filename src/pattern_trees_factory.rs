@@ -67,14 +67,10 @@ impl PatternTreesFactory {
                 }
             }
         }
-        /*
-        for pattern_tree in pattern_trees.iter_mut() {
-            for followers in pattern_tree.pattern_tree_implementation.values_mut() {
-                followers.retain(|follower| follower.count != 1);
-                followers.sort_by(|a, b| b.count.cmp(&a.count));
-            }
-        }
-        */
+        pattern_trees[0].pattern_tree_implementation.get_mut("")
+            .unwrap()
+            .sort_unstable_by(|a, b| b.count.cmp(&a.count));
+
         Ok(PatternTrees::new(pattern_trees))
     }
 

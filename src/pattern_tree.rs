@@ -20,16 +20,19 @@ pub type PatternTreeImplementation = BTreeMap<String, Vec<Follower>>;
 #[derive(Debug, Clone)]
 pub struct PatternTree {
     pub pattern_tree_implementation: PatternTreeImplementation,
+    pub total_follower_count: u64,
 }
 
 impl PatternTree {
     pub fn new() -> Self {
         Self {
             pattern_tree_implementation: PatternTreeImplementation::new(),
+            total_follower_count: 0,
         }
     }
 
     pub fn insert(&mut self, pattern: &str, new_follower: Follower) {
+        self.total_follower_count += new_follower.count as u64;
         if let Some(followers) = self.pattern_tree_implementation.get_mut(pattern) {
             for follower in followers.iter_mut() {
                 if follower.letter == new_follower.letter {

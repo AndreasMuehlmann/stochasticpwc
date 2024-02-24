@@ -1,9 +1,23 @@
-use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{self, Write};
 
 use crate::pattern_tree::PatternTree;
 
+
+#[derive(Debug, Clone)]
+pub struct ProbableFollower {
+    pub letter: char,
+    pub probability: f64,
+}
+
+impl ProbableFollower {
+    pub fn new(letter: char, probability: f64) -> Self {
+        Self {
+            letter,
+            probability,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct PatternTrees {
@@ -18,31 +32,49 @@ impl PatternTrees {
     }
 
     pub fn alphabet(&self) -> Vec<char> {
-        self.pattern_trees[0].pattern_tree_implementation.get("").unwrap().iter().map(|follower| follower.letter).collect()
+        self.pattern_trees[0].pattern_tree_implementation.get("")
+            .unwrap()
+            .iter()
+            .map(|follower| follower.letter)
+            .collect()
     }
 
     pub fn patterns(&self, pattern_tree_index: usize) -> Vec<String> {
        self.pattern_trees[pattern_tree_index].patterns()
     }
 
-    pub fn statistically_significant(&self, pattern: &str) -> BTreeSet<char> {
-        const LESS_PATTERN_LENGTH_FROM_MAX: usize = 2;
-        let mut followers: BTreeSet<char> = BTreeSet::new();
+    pub fn probable_followers(&self, pattern: &str) ->  Vec<ProbableFollower> {
+        let less_pattern_length_from_max: usize = self.pattern_trees.len() - 1;
+        let mut probable_followers: Vec<ProbableFollower> = self.alphabet()
+            .iter()
+            .map(|letter| ProbableFollower::new(*letter, 0.0))
+            .collect();
 
         let max = self.pattern_trees.len().min(pattern.len() + 1);
-        let min_pattern_tree = if max < LESS_PATTERN_LENGTH_FROM_MAX { 0 } else { max - LESS_PATTERN_LENGTH_FROM_MAX };
+        let min_pattern_tree = if max < less_pattern_length_from_max { 0 } else { max - less_pattern_length_from_max };
 
         for index in min_pattern_tree..max {
             if let Some(tree_followers) = self.pattern_trees[index].pattern_tree_implementation.get(&pattern[pattern.len() - index..]) {
-                let probable_followers: Vec<char> = tree_followers
-                    .iter()
-                    .filter_map(
-                        |follower| Some(follower.letter)
-                    ).collect();
-                followers.extend(probable_followers);
+                for tree_follower in tree_followers.iter() {
+                    let probable_follower = probable_followers.iter_mut()
+                        .find(|probable_follower| probable_follower.letter == tree_follower.letter)
+                        .unwrap();
+                    probable_follower.probability += tree_follower.count as f64 
+                        / self.pattern_trees[index].total_follower_count as f64 
+                        / (max - min_pattern_tree) as f64;
+                }
             }
         }
-        followers
+        probable_followers.sort_unstable_by(
+            |a, b| b.probability.partial_cmp(&a.probability).unwrap()
+            );
+        probable_followers.into_iter()
+            .take(Self::followers_for_pattern_length(pattern.len()))
+            .collect()
+    }
+
+    fn followers_for_pattern_length(length: usize) -> usize {
+        60 / (length + 1) + 1
     }
 
     pub fn write_with_error_handling(&self, write_function: fn(&PatternTrees, &str) -> Result<(),

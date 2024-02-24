@@ -4,6 +4,21 @@ use std::sync::{Mutex, Arc};
 
 use crate::pattern_trees::PatternTrees;
 
+
+pub struct Word {
+    pub pattern: String,
+    pub probability: f64,
+}
+
+impl Word {
+    pub fn new(pattern: String, probability: f64) -> Self {
+        Self {
+            pattern,
+            probability,
+        }
+    }
+}
+
 pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threads: usize) -> Option<String> {
     let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
     queue.extend(pattern_trees.patterns(2));
@@ -40,11 +55,13 @@ pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threa
                     if current.starts_with(&hash[..4]) {
                         println!("{}", current);
                     }
+                    /*
                     for stat_signif in pattern_trees.statistically_significant(&current).iter() {
                         let mut new_password = current.clone();
                         new_password.push(*stat_signif);
                         own_queue.push_back(new_password);
                     }
+                    */
                 }
             };
         });
@@ -57,23 +74,23 @@ pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threa
 }
 
 pub fn crack(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Option<String> {
-    let mut queue: VecDeque<String> = VecDeque::with_capacity(100000);
-    queue.push_back("".to_string());
+    let mut queue: VecDeque<Word> = VecDeque::with_capacity(100000);
+    queue.push_back(Word::new("".to_string(), 1.0));
     while !queue.is_empty() {
-        let current: String = queue.pop_back().unwrap();
-        if current.len() > max_len {
+        let current: Word = queue.pop_back().unwrap();
+        if current.pattern.len() > max_len {
             continue
         }
-        if current.starts_with(&hash[..4]) {
-            println!("{}", current);
+        if current.pattern.starts_with(&hash[..2]) {
+            println!("{}", current.pattern);
         }
-        if current == hash {
-            return Some(current);
+        if current.pattern == hash {
+            return Some(current.pattern);
         }
-        for stat_signif in pattern_trees.statistically_significant(&current).iter() {
-            let mut new_password = current.clone();
-            new_password.push(*stat_signif);
-            queue.push_back(new_password);
+        for probable_follower in pattern_trees.probable_followers(&current.pattern).iter() {
+            let mut new_password = current.pattern.clone();
+            new_password.push(probable_follower.letter);
+            queue.push_back(Word::new(new_password, current.probability * probable_follower.probability));
         }
     }
     return None;
