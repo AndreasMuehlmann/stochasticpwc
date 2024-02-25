@@ -51,8 +51,8 @@ impl PatternTreesFactory {
                 }
             };
 
-            if line.is_empty() || !line.is_ascii(){
-                continue
+            if line.contains(" ") || line.is_empty() || !line.is_ascii() {
+                continue;
             }
 
             let mut sub_strings = Self::sub_strings_max_len(line, self.count_pattern_trees);
@@ -133,7 +133,11 @@ impl PatternTreesFactory {
 
     fn parse_count_from_encoding(line: String, pattern_length: usize) -> (String, u32) {
         let (line, count) = Self::split_off_chars(line, pattern_length + 1);
-        let count = count.parse::<u32>().unwrap();
+        let count = count.parse::<u32>()
+            .unwrap_or_else(|err| {
+                eprintln!("ERROR: {}", err);
+                0
+            });
         (line, count)
     }
 }
