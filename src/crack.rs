@@ -60,26 +60,13 @@ pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threa
         handles.push(handle);
     }
     let mut index = 0;
-    let mut deque = VecDeque::new();
     loop {
         index = (index + 1) % threads;
-        for _ in 0..100 {
-            let word = match rx.try_recv() {
-                Ok(word) => word,
-                Err(_) => continue,
-            };
-            deque.push_back(word)
-        }
-        let next_word = match deque.pop_front() {
-            Some(next_word) => next_word,
-            None => {
-                match rx.recv_timeout(Duration::new(0, 50000000)) {
-                    Ok(next_word) => next_word,
-                    Err(_) => break,
-                }
-            },
+        let word = match rx.recv_timeout(Duration::new(0, 50000000)) {
+            Ok(word) => word,
+            Err(_) => break,
         };
-        let result = thread_txs[index].send(next_word);
+        let result = thread_txs[index].send(word);
         if result.is_err() { break; }
     }
     for handle in handles {
