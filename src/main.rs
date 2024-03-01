@@ -77,7 +77,7 @@ fn main() {
     if let Some(password_hash) = args.password_hash {
         println!("INFO: Attacking...");
         let optional_password = if args.threads == 1 {crack(pattern_trees, password_hash.len(), password_hash)}
-            else {crack_mp(pattern_trees, password_hash.len(), password_hash, args.threads, 100)};
+            else {crack_mp(pattern_trees, password_hash.len(), password_hash, args.threads)};
         if let Some(password) = optional_password {
             println!("DONE: Found {}", password);
         }

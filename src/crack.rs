@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
-use std::sync::{Mutex, Arc};
 
 use crate::pattern_trees::PatternTrees;
 
@@ -21,64 +22,65 @@ impl Word {
     }
 }
 
-pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threads: usize, batch_size: usize) -> Option<String> {
-    let mut queue: VecDeque<Word> = VecDeque::with_capacity(100000);
-    queue.push_back(Word::new("".to_string(), 1.0));
-    let queue: Arc<Mutex<Option<VecDeque<Word>>>> = Arc::new(Mutex::new(Some(queue)));
+pub fn crack_mp(pattern_trees: PatternTrees, max_len: usize, hash: String, threads: usize) -> Option<String> {
+    let (tx, rx): (Sender<Word>, Receiver<Word>) = mpsc::channel();
+    tx.send(Word::new("".to_string(), 1.0)).unwrap();
 
     let pattern_trees: Arc<PatternTrees> = Arc::new(pattern_trees);
 
     let mut handles = vec![];
+    let mut thread_txs = vec![];
     for _ in 0..threads {
-        let queue = Arc::clone(&queue);
+        let tx = tx.clone();
+        let (thread_tx, rx): (Sender<Word>, Receiver<Word>) = mpsc::channel();
+        thread_txs.push(thread_tx);
+
         let pattern_trees = Arc::clone(&pattern_trees);
         let hash = hash.clone();
-        let mut result: VecDeque<Word> = VecDeque::with_capacity(batch_size * 10);
-        let mut batch: VecDeque<Word> = VecDeque::new();
 
         let handle = thread::spawn(move || {
             loop {
-                batch.clear();
-                {
-                    let mut queue = queue.lock().unwrap();
-                    match &mut *queue {
-                        Some(queue) => {
-                            if queue.is_empty() {
-                                continue;
-                            }
-                            if queue.len() < batch_size + 1 {
-                                batch.append(queue);
-                            } else {
-                                batch = queue.split_off(batch_size);
-                            }
-                        },
-                        None => return,
-                    }
+                let current = match rx.recv_timeout(Duration::new(0, 50000000)) {
+                    Ok(current) => current,
+                    Err(_) => return,
+                };
+
+                if current.pattern.starts_with(&hash[0..2]) {println!("{}", current.pattern);}
+                if current.pattern == hash { return; }
+                if current.pattern.len() >= max_len { continue; }
+
+                for probable_follower in pattern_trees.probable_followers(&current.pattern).iter() {
+                    let mut new_password = current.pattern.clone();
+                    new_password.push(probable_follower.letter);
+                    let result = tx.send(Word::new(new_password, current.probability * probable_follower.probability));
+                    if result.is_err() { return; }
                 }
-                for current in batch.iter() {
-                    println!("{}", current.pattern);
-                    //if current.pattern.starts_with(&hash[0..2]) {println!("{}", current.pattern);}
-                    if current.pattern == hash { }
-                    if current.pattern.len() >= max_len { continue; }
-                    for probable_follower in pattern_trees.probable_followers(&current.pattern).iter() {
-                        let mut new_password = current.pattern.clone();
-                        new_password.push(probable_follower.letter);
-                        result.push_back(Word::new(new_password, current.probability * probable_follower.probability));
-                    }
-                }
-                let mut queue = queue.lock().unwrap();
-                match &mut *queue {
-                    Some(queue) => {
-                        queue.append(&mut result);
-                    },
-                    None => {
-                        return;
-                    },
-                }
-                thread::sleep(Duration::new(5, 0));
             };
         });
         handles.push(handle);
+    }
+    let mut index = 0;
+    let mut deque = VecDeque::new();
+    loop {
+        index = (index + 1) % threads;
+        for _ in 0..100 {
+            let word = match rx.try_recv() {
+                Ok(word) => word,
+                Err(_) => continue,
+            };
+            deque.push_back(word)
+        }
+        let next_word = match deque.pop_front() {
+            Some(next_word) => next_word,
+            None => {
+                match rx.recv_timeout(Duration::new(0, 50000000)) {
+                    Ok(next_word) => next_word,
+                    Err(_) => break,
+                }
+            },
+        };
+        let result = thread_txs[index].send(next_word);
+        if result.is_err() { break; }
     }
     for handle in handles {
         handle.join().unwrap();
@@ -92,6 +94,10 @@ pub fn crack(pattern_trees: PatternTrees, max_len: usize, hash: String) -> Optio
     let mut probabilities: Vec<f64> = (0..max_len).map(|_| 0.0).collect();
     while !queue.is_empty() {
         let current: Word = queue.pop_back().unwrap();
+
+        if current.pattern.starts_with(&hash[0..2]) {println!("{}", current.pattern);}
+        if current.pattern == hash { return Some(current.pattern); }
+        if current.pattern.len() >= max_len { continue; }
 
         let mut iir_faktor = 0.9;
         if probabilities[current.pattern.len()] > current.probability { 
