@@ -11,8 +11,8 @@ use crate::crack::{crack, crack_mp};
 
 
 //TODO: multithreading batch sizes and with channels for stopping and getting the result
-//TODO: take only certain best amount of words (100 / (4 + x)) 
-//TODO: average probability with word iir filter 
+//TODO: target, that supports lists and actual hashes
+//TODO: test stochastic pwc against traditional methods
 
 
 /// Program to crack passwords with probability
@@ -77,7 +77,7 @@ fn main() {
     if let Some(password_hash) = args.password_hash {
         println!("INFO: Attacking...");
         let optional_password = if args.threads == 1 {crack(pattern_trees, password_hash.len(), password_hash)}
-            else {crack_mp(pattern_trees, password_hash.len(), password_hash, args.threads)};
+            else {crack_mp(pattern_trees, password_hash.len(), password_hash, args.threads, 100)};
         if let Some(password) = optional_password {
             println!("DONE: Found {}", password);
         }
